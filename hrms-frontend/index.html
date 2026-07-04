@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HRMS - Human Resource Management System</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --paper:#f2f2ed; --line:#0a0a0a;
+    --accent:#ff3b00; --ok:#0a0a0a; --gray:#7a7a72;
+    --success:#2ecc71; --warning:#f39c12; --danger:#e74c3c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html, body{ height:100%; }
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Courier New', monospace;
+    line-height:1.3;
+  }
+  h1,h2,h3{font-family:Arial, sans-serif; font-weight:900; text-transform:uppercase; letter-spacing:-1px;}
+  h1{font-size:42px; padding:24px; display:flex; justify-content:space-between; align-items:center; border-bottom:6px solid var(--ink);}
+  h1 span{font-size:14px; font-family:'Courier New',monospace; text-transform:none; letter-spacing:0;}
+  h2{font-size:20px; margin-bottom:16px; border-bottom:3px solid var(--ink); padding-bottom:8px;}
+  h3{font-size:16px; margin-bottom:12px;}
+  
+  .app{ display:flex; flex-direction:column; height:100vh; }
+  .container{ display:flex; flex:1; }
+  .sidebar{width:220px; background:var(--ink); border-right:4px solid var(--ink); overflow-y:auto;}
+  .main{ flex:1; overflow-y:auto; padding:24px; }
+  
+  .nav-btn{
+    display:block; width:100%; text-align:left; padding:16px; background:none; border:none;
+    border-bottom:2px solid #333; color:var(--paper); font:inherit; font-size:14px;
+    text-transform:uppercase; cursor:pointer; letter-spacing:1px; transition:0.2s;
+  }
+  .nav-btn:hover, .nav-btn.active{background:var(--accent); color:var(--ink); font-weight:bold;}
+  
+  .authbox{max-width:380px; margin:60px auto; border:4px solid var(--ink); padding:30px;}
+  .authbox h1{border:none; font-size:28px; justify-content:center; padding:0; margin-bottom:20px;}
+  
+  .dashboard-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;}
+  .dashboard-card{border:3px solid var(--ink); padding:16px; text-align:center; cursor:pointer; transition:0.2s;}
+  .dashboard-card:hover{background:var(--accent); transform:scale(1.05);}
+  .dashboard-card h3{margin:8px 0; font-size:24px;}
+  .dashboard-card p{font-size:12px; text-transform:uppercase;}
+  
+  .card{border:3px solid var(--ink); padding:20px; margin-bottom:16px; background:var(--paper);}
+  .card-header{font-weight:bold; margin-bottom:8px; font-size:12px; text-transform:uppercase;}
+  
+  input, select, textarea{
+    width:100%; padding:10px; border:3px solid var(--ink); background:var(--paper);
+    font:inherit; margin-bottom:10px;
+  }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--accent); }
+  
+  label{font-size:11px; text-transform:uppercase; font-weight:bold; letter-spacing:1px; display:block; margin-bottom:4px;}
+  
+  .button-group{ display:flex; gap:10px; }
+  button.btn{
+    background:var(--ink); color:var(--paper); border:3px solid var(--ink);
+    padding:12px 20px; font:inherit; text-transform:uppercase; font-weight:bold;
+    cursor:pointer; letter-spacing:1px; transition:0.2s; flex:1;
+  }
+  button.btn:hover{background:var(--accent); color:var(--ink);}
+  button.btn.secondary{background:var(--paper); color:var(--ink);}
+  button.btn.secondary:hover{background:var(--gray); color:var(--paper);}
+  button.btn.danger{background:var(--danger);}
+  button.btn.success{background:var(--success);}
+  
+  table{width:100%; border-collapse:collapse; margin-top:10px;}
+  th,td{border:2px solid var(--ink); padding:12px; font-size:13px; text-align:left;}
+  th{background:var(--ink); color:var(--paper); text-transform:uppercase; font-size:11px; font-weight:bold;}
+  tr:nth-child(even){background:rgba(0,0,0,0.02);}
+  
+  .tag{display:inline-block; padding:4px 12px; border:2px solid var(--ink); font-size:11px; font-weight:bold; text-transform:uppercase;}
+  .tag.PRESENT{background:var(--success); color:var(--paper); border:none;}
+  .tag.ABSENT{background:var(--danger); color:var(--paper); border:none;}
+  .tag.HALF_DAY{background:var(--warning); color:var(--paper); border:none;}
+  .tag.LEAVE{background:var(--gray); color:var(--paper); border:none;}
+  .tag.PENDING{background:#eee; color:var(--ink);}
+  .tag.APPROVED{background:var(--success); color:var(--paper);}
+  .tag.REJECTED{background:var(--danger); color:var(--paper);}
+  
+  .err{color:var(--danger); font-weight:bold; margin-bottom:10px; padding:10px; border:2px solid var(--danger);}
+  .success{color:var(--success); font-weight:bold; margin-bottom:10px; padding:10px; border:2px solid var(--success);}
+  
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1;}
+  .switch{margin-top:14px; font-size:12px; cursor:pointer; text-decoration:underline; color:var(--accent);}
+  
+  @media(max-width:768px){
+    .sidebar{width:100%; height:auto;}
+    .container{flex-direction:column;}
+    .dashboard-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const API = 'http://localhost:5000';
+let state = { 
+  token: localStorage.getItem('token'), 
+  user: JSON.parse(localStorage.getItem('user')||'null'), 
+  view:'dashboard', 
+  err:'',
+  mode: 'login'
+};
+
+async function api(path, opts={}) {
+  const res = await fetch(API+path, {
+    ...opts,
+    headers:{ 'Content-Type':'application/json', ...(state.token?{Authorization:'Bearer '+state.token}:{}), ...(opts.headers||{}) }
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||'Request failed');
+  return data;
+}
+
+function render(){ document.getElementById('app').innerHTML=''; state.user ? renderApp() : renderAuth(); }
+
+function renderAuth(){
+  const el = document.getElementById('app');
+  el.innerHTML = `
+    <div class="authbox">
+      <h1>HRMS</h1>
+      ${state.err ? `<div class="err">${state.err}</div>` : ''}
+      <div id="fields"></div>
+      <button class="btn" id="submit" style="width:100%">${state.mode==='signup'?'Sign Up':'Sign In'}</button>
+      <div class="switch" id="switchMode">${state.mode==='signup'?'Have an account? Sign in':'New here? Sign up'}</div>
+    </div>`;
+  
+  const fields = document.getElementById('fields');
+  if(state.mode==='signup'){
+    fields.innerHTML = `
+      <label>Email</label><input id="email" type="email" placeholder="user@example.com">
+      <label>Password (8+ chars, uppercase, lowercase, number)</label><input id="password" type="password">
+      <label>Role</label><select id="role"><option value="EMPLOYEE">Employee</option><option value="ADMIN">Admin</option></select>
+    `;
+  } else {
+    fields.innerHTML = `
+      <label>Email</label><input id="email" type="email">
+      <label>Password</label><input id="password" type="password">
+    `;
+  }
+  
+  document.getElementById('switchMode').onclick = ()=>{ state.mode = state.mode==='signup'?'login':'signup'; state.err=''; render(); };
+  document.getElementById('submit').onclick = async ()=>{
+    try{
+      if(state.mode==='signup'){
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const role = document.getElementById('role').value;
+        
+        if(!email || !password) throw new Error('Email and password required');
+        
+        const res = await api('/auth/signup',{method:'POST', body:JSON.stringify({email, password, role})});
+        state.mode='login'; 
+        const roleText = role === 'ADMIN' ? 'Admin' : 'Employee';
+        state.err=`${roleText} account created! ID: ${res.employeeId}. Now sign in.`; 
+        render(); 
+        return;
+      }
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const data = await api('/auth/login',{method:'POST', body:JSON.stringify({email, password})});
+      state.token=data.token; 
+      state.user=data.user;
+      localStorage.setItem('token', data.token); 
+      localStorage.setItem('user', JSON.stringify(data.user));
+      state.err=''; 
+      render();
+    }catch(e){ 
+      state.err=e.message; 
+      render(); 
+    }
+  };
+}
+
+function logout(){ localStorage.clear(); state={view:'dashboard', mode:'login'}; render(); }
+
+function renderApp(){
+  const isAdmin = state.user.role==='ADMIN';
+  const el = document.getElementById('app');
+  const navItems = ['dashboard','profile','attendance','leave', ...(isAdmin?['employees','approvals','payroll']:[])];
+  
+  el.innerHTML = `
+    <div class="app">
+      <h1>
+        HRMS
+        <span>${state.user.email} — ${state.user.role}</span>
+      </h1>
+      <div class="container">
+        <div class="sidebar">
+          ${navItems.map(v=>`<button class="nav-btn ${state.view===v?'active':''}" data-v="${v}">${v.toUpperCase()}</button>`).join('')}
+          <button class="nav-btn" id="logout">LOGOUT</button>
+        </div>
+        <div class="main" id="main"></div>
+      </div>
+    </div>`;
+  
+  el.querySelectorAll('.nav-btn[data-v]').forEach(b=>b.onclick=()=>{state.view=b.dataset.v; render();});
+  el.querySelector('#logout').onclick = logout;
+  loadView();
+}
+
+async function loadView(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  try{
+    if(state.view==='dashboard') await renderDashboard();
+    else if(state.view==='profile') await renderProfile();
+    else if(state.view==='attendance') await renderAttendance();
+    else if(state.view==='leave') await renderLeave();
+    else if(state.view==='employees' && isAdmin) await renderEmployees();
+    else if(state.view==='approvals' && isAdmin) await renderApprovals();
+    else if(state.view==='payroll') await renderPayroll();
+  }catch(e){ 
+    main.innerHTML = `<div class="err">Error: ${e.message}</div>`; 
+  }
+}
+
+async function renderDashboard(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  
+  if(isAdmin){
+    const employees = await api('/auth/admin/employees');
+    const totalEmpls = employees.length;
+    const presentToday = employees.filter(e => 
+      e.attendance.some(a => new Date(a.date).toDateString() === new Date().toDateString() && a.status === 'PRESENT')
+    ).length;
+    const pendingLeaves = employees.reduce((acc, e) => acc + e.leaves.filter(l => l.status === 'PENDING').length, 0);
+    
+    main.innerHTML = `
+      <h2>Admin Dashboard</h2>
+      <div class="dashboard-grid">
+        <div class="dashboard-card" onclick="state.view='employees'; render();">
+          <h3>${totalEmpls}</h3>
+          <p>Total Employees</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='attendance'; render();">
+          <h3>${presentToday}</h3>
+          <p>Present Today</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='approvals'; render();">
+          <h3>${pendingLeaves}</h3>
+          <p>Pending Approvals</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='payroll'; render();">
+          <h3>$</h3>
+          <p>Manage Payroll</p>
+        </div>
+      </div>
+    `;
+  } else {
+    const todayAttendance = await api('/attendance/me').then(a => a.find(x => new Date(x.date).toDateString() === new Date().toDateString())).catch(()=>null);
+    const leaves = await api('/leave/me').then(l => l.filter(x => x.status === 'PENDING')).catch(()=>[]);
+    
+    main.innerHTML = `
+      <h2>Employee Dashboard</h2>
+      <div class="dashboard-grid">
+        <div class="dashboard-card" onclick="state.view='profile'; render();">
+          <h3>[P]</h3>
+          <p>My Profile</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='attendance'; render();">
+          <h3>${todayAttendance?.status || '?'}</h3>
+          <p>Today's Status</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='leave'; render();">
+          <h3>${leaves.length}</h3>
+          <p>Pending Leaves</p>
+        </div>
+        <div class="dashboard-card" onclick="state.view='payroll'; render();">
+          <h3>$</h3>
+          <p>View Payroll</p>
+        </div>
+      </div>
+      ${state.err ? `<div class="success">${state.err}</div>` : ''}
+    `;
+  }
+}
+
+async function renderProfile(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  const p = await api('/profile/me').catch(()=>null);
+  
+  main.innerHTML = `
+    <h2>${isAdmin ? 'Admin Profile' : 'Employee Profile'}</h2>
+    <div class="card">
+      <div class="card-header">Personal Information</div>
+      <label>Email</label><input type="email" value="${state.user.email}" disabled>
+      <label>Employee ID</label><input type="text" value="${state.user.employeeId}" disabled>
+      <label>Phone</label><input id="phone" type="tel" value="${p?.phone||''}">
+      <label>Address</label><textarea id="address">${p?.address||''}</textarea>
+      <label>Job Title</label><input id="jobTitle" value="${p?.jobTitle||''}">
+      <label>Department</label><input id="department" value="${p?.department||''}">
+      <label>Photo URL</label><input id="photoUrl" value="${p?.photoUrl||''}">
+      <button class="btn" id="save">Save Profile</button>
+    </div>`;
+  
+  document.getElementById('save').onclick = async ()=>{
+    await api('/profile/me',{method:'PUT', body:JSON.stringify({
+      phone:document.getElementById('phone').value,
+      address:document.getElementById('address').value,
+      jobTitle:document.getElementById('jobTitle').value,
+      department:document.getElementById('department').value,
+      photoUrl:document.getElementById('photoUrl').value
+    })});
+    state.err='Profile updated!';
+    render();
+  };
+}
+
+async function renderAttendance(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  
+  if(isAdmin){
+    // ADMIN VIEW: Mark attendance for employees
+    const employees = await api('/auth/admin/employees');
+    const allRecords = await api('/attendance/all');
+    
+    main.innerHTML = `
+      <h2>Attendance Management</h2>
+      <div class="card">
+        <div class="card-header">Mark Employee Attendance</div>
+        <div class="row">
+          <div style="flex:1;">
+            <label>Select Employee</label>
+            <select id="empSelect">
+              <option value="">-- Choose Employee --</option>
+              ${employees.map(e=>`<option value="${e.id}">${e.email} (${e.employeeId})</option>`).join('')}
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label>Date</label>
+            <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+          <div style="flex:1;">
+            <label>Status</label>
+            <select id="attStatus">
+              <option value="PRESENT">Present</option>
+              <option value="HALF_DAY">Half Day</option>
+              <option value="ABSENT">Absent</option>
+              <option value="LEAVE">Leave</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn success" id="markBtn" style="width:100%; margin-top:12px;">Mark Attendance</button>
+      </div>
+      <div class="card">
+        <div class="card-header">Attendance History (All Employees)</div>
+        <table>
+          <tr><th>Employee</th><th>Date</th><th>Status</th><th>Check In</th></tr>
+          ${allRecords.slice(0, 50).map(a=>`<tr>
+            <td><strong>${a.user.email}</strong></td>
+            <td>${new Date(a.date).toLocaleDateString()}</td>
+            <td><span class="tag ${a.status}">${a.status}</span></td>
+            <td>${a.checkIn?new Date(a.checkIn).toLocaleTimeString():'-'}</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+    `;
+    
+    document.getElementById('markBtn').onclick = async ()=>{
+      const userId = document.getElementById('empSelect').value;
+      const status = document.getElementById('attStatus').value;
+      const date = document.getElementById('attDate').value;
+      
+      if(!userId) { state.err='Please select an employee'; render(); return; }
+      await api('/attendance/mark-employee', {
+        method:'POST', 
+        body:JSON.stringify({userId:Number(userId), status, date})
+      });
+      state.err=`Attendance marked for ${status}`;
+      render();
+    };
+  } else {
+    // EMPLOYEE VIEW: Only view their own attendance
+    const myRecords = await api('/attendance/me');
+    
+    main.innerHTML = `
+      <h2>My Attendance Record</h2>
+      <div class="card" style="text-align:center; background:#fff3cd; border-color:#f39c12;">
+        <p style="font-size:14px; color:#856404;">
+          Your attendance is marked by your administrator.<br>
+          Only admins can record check-in/out times.
+        </p>
+      </div>
+      <div class="card">
+        <div class="card-header">Attendance History</div>
+        <table>
+          <tr><th>Date</th><th>Status</th><th>Check In</th><th>Check Out</th></tr>
+          ${myRecords.length > 0 ? myRecords.slice(0, 30).map(a=>`<tr>
+            <td>${new Date(a.date).toLocaleDateString()}</td>
+            <td><span class="tag ${a.status}">${a.status}</span></td>
+            <td>${a.checkIn?new Date(a.checkIn).toLocaleTimeString():'-'}</td>
+            <td>${a.checkOut?new Date(a.checkOut).toLocaleTimeString():'-'}</td>
+          </tr>`).join('') : '<tr><td colspan="4" style="text-align:center; padding:20px;">No attendance records yet</td></tr>'}
+        </table>
+      </div>
+    `;
+  }
+}
+
+async function renderLeave(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  
+  const myLeaves = await api('/leave/me');
+  
+  main.innerHTML = `
+    <h2>Leave & Time-Off Management</h2>
+    <div class="card">
+      <div class="card-header">Apply for Leave</div>
+      <label>Leave Type</label>
+      <select id="leaveType">
+        <option value="Paid">Paid Leave</option>
+        <option value="Sick">Sick Leave</option>
+        <option value="Unpaid">Unpaid Leave</option>
+      </select>
+      <div class="row">
+        <div><label>Start Date</label><input type="date" id="startDate"></div>
+        <div><label>End Date</label><input type="date" id="endDate"></div>
+      </div>
+      <label>Remarks</label>
+      <textarea id="remarks" placeholder="Additional details..."></textarea>
+      <button class="btn" id="applyLeave">Submit Leave Request</button>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">My Leave Requests</div>
+      <table>
+        <tr><th>Type</th><th>From</th><th>To</th><th>Status</th><th>Remarks</th></tr>
+        ${myLeaves.map(l=>`<tr>
+          <td><strong>${l.type}</strong></td>
+          <td>${new Date(l.startDate).toLocaleDateString()}</td>
+          <td>${new Date(l.endDate).toLocaleDateString()}</td>
+          <td><span class="tag ${l.status}">${l.status}</span></td>
+          <td>${l.remarks||'-'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+  `;
+  
+  document.getElementById('applyLeave').onclick = async ()=>{
+    const type = document.getElementById('leaveType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const remarks = document.getElementById('remarks').value;
+    
+    if(!startDate || !endDate) { state.err='Please select both dates'; render(); return; }
+    if(new Date(startDate) > new Date(endDate)) { state.err='Start date must be before end date'; render(); return; }
+    
+    await api('/leave/apply',{method:'POST', body:JSON.stringify({type, startDate, endDate, remarks})});
+    state.err='Leave request submitted!';
+    render();
+  };
+}
+
+async function renderEmployees(){
+  const main = document.getElementById('main');
+  const employees = await api('/auth/admin/employees');
+  
+  main.innerHTML = `
+    <h2>Employee Directory</h2>
+    <div class="card">
+      <table>
+        <tr>
+          <th>Employee ID</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Phone</th>
+          <th>Department</th>
+          <th>Today's Status</th>
+          <th>Active Leaves</th>
+        </tr>
+        ${employees.map(emp=>{
+          const todayAttendance = emp.attendance.find(a => new Date(a.date).toDateString() === new Date().toDateString());
+          const activeLeaves = emp.leaves.filter(l => new Date(l.startDate) <= new Date() && new Date(l.endDate) >= new Date() && l.status === 'APPROVED').length;
+          return `<tr>
+            <td><strong>${emp.employeeId}</strong></td>
+            <td>${emp.email}</td>
+            <td>${emp.role}</td>
+            <td>${emp.profile?.phone || '-'}</td>
+            <td>${emp.profile?.department || '-'}</td>
+            <td><span class="tag ${todayAttendance?.status || 'ABSENT'}">${todayAttendance?.status || 'ABSENT'}</span></td>
+            <td>${activeLeaves}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div>
+  `;
+}
+
+async function renderApprovals(){
+  const main = document.getElementById('main');
+  const allLeaves = await api('/leave/all');
+  const pendingLeaves = allLeaves.filter(l => l.status === 'PENDING');
+  
+  main.innerHTML = `
+    <h2>Leave Approvals</h2>
+    <div class="card">
+      <div class="card-header">Pending Leave Requests (${pendingLeaves.length})</div>
+      ${pendingLeaves.length === 0 ? '<p>No pending requests</p>' : `
+        <table>
+          <tr>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>Dates</th>
+            <th>Remarks</th>
+            <th>Action</th>
+          </tr>
+          ${pendingLeaves.map(l=>`<tr>
+            <td><strong>${l.user.email}</strong></td>
+            <td>${l.type}</td>
+            <td>${new Date(l.startDate).toLocaleDateString()} - ${new Date(l.endDate).toLocaleDateString()}</td>
+            <td>${l.remarks||'-'}</td>
+            <td>
+              <button class="btn success" onclick="approveLeave(${l.id})">Approve</button>
+              <button class="btn danger" onclick="rejectLeave(${l.id})">Reject</button>
+            </td>
+          </tr>`).join('')}
+        </table>
+      `}
+    </div>
+    
+    <div class="card">
+      <div class="card-header">Approved/Rejected Requests</div>
+      <table>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>Dates</th>
+          <th>Status</th>
+          <th>Comments</th>
+        </tr>
+        ${allLeaves.filter(l => l.status !== 'PENDING').map(l=>`<tr>
+          <td>${l.user.email}</td>
+          <td>${l.type}</td>
+          <td>${new Date(l.startDate).toLocaleDateString()} - ${new Date(l.endDate).toLocaleDateString()}</td>
+          <td><span class="tag ${l.status}">${l.status}</span></td>
+          <td>${l.comment||'-'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+  `;
+}
+
+async function renderPayroll(){
+  const main = document.getElementById('main');
+  const isAdmin = state.user.role==='ADMIN';
+  
+  if(isAdmin){
+    const all = await api('/payroll/all');
+    main.innerHTML = `
+      <h2>Payroll Management</h2>
+      <div class="card">
+        <table>
+          <tr>
+            <th>Employee</th>
+            <th>Email</th>
+            <th>Base Salary</th>
+            <th>Action</th>
+          </tr>
+          ${all.map(p=>`<tr>
+            <td><strong>${p.user.employeeId || p.user.id}</strong></td>
+            <td>${p.user.email}</td>
+            <td>$${p.baseSalary || 0}</td>
+            <td>
+              <input type="number" id="sal-${p.userId}" style="width:80px;" value="${p.baseSalary || 0}">
+              <button class="btn secondary" onclick="updateSalary(${p.userId})">Update</button>
+            </td>
+          </tr>`).join('')}
+        </table>
+      </div>
+    `;
+  } else {
+    const p = await api('/payroll/me').catch(()=>null);
+    main.innerHTML = `
+      <h2>My Payroll</h2>
+      <div class="card">
+        <label>Base Salary</label>
+        <div style="font-size:24px; font-weight:bold; margin:16px 0;">$${p?.baseSalary || 'Not set'}</div>
+        <p style="font-size:12px; color:var(--gray);">Salary information is managed by the HR administrator</p>
+      </div>
+    `;
+  }
+}
+
+window.approveLeave = async (id) => {
+  const comment = prompt('Add a comment (optional):');
+  await api(`/leave/${id}/review`, {method:'PUT', body:JSON.stringify({status:'APPROVED', comment})});
+  state.err='Leave approved!';
+  render();
+};
+
+window.rejectLeave = async (id) => {
+  const comment = prompt('Add a comment (optional):');
+  await api(`/leave/${id}/review`, {method:'PUT', body:JSON.stringify({status:'REJECTED', comment})});
+  state.err='Leave rejected!';
+  render();
+};
+
+window.updateSalary = async (userId) => {
+  const salary = document.getElementById(`sal-${userId}`).value;
+  await api(`/payroll/${userId}`, {method:'PUT', body:JSON.stringify({baseSalary: Number(salary)})});
+  state.err='Salary updated!';
+  render();
+};
+
+render();
+</script>
+</body>
+</html>

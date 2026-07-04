@@ -1,0 +1,69 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  employeeId  String    @unique
+  email       String    @unique
+  password    String
+  role        String    @default("EMPLOYEE")
+  verified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  profile     Profile?
+  attendance  Attendance[]
+  leaves      LeaveRequest[]  @relation("leaveOwner")
+  reviewed    LeaveRequest[]  @relation("leaveReviewer")
+  payroll     Payroll?
+}
+
+model Profile {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique
+  user      User    @relation(fields: [userId], references: [id])
+  phone     String?
+  address   String?
+  jobTitle  String?
+  department String?
+  photoUrl  String?
+}
+
+model Attendance {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  date      DateTime  @default(now())
+  status    String
+  checkIn   DateTime?
+  checkOut  DateTime?
+}
+
+model LeaveRequest {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  user        User        @relation("leaveOwner", fields: [userId], references: [id])
+  type        String
+  startDate   DateTime
+  endDate     DateTime
+  remarks     String?
+  status      String      @default("PENDING")
+  reviewedBy  Int?
+  reviewer    User?       @relation("leaveReviewer", fields: [reviewedBy], references: [id])
+  comment     String?
+  createdAt   DateTime    @default(now())
+}
+
+model Payroll {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique
+  user      User    @relation(fields: [userId], references: [id])
+  baseSalary Float
+  structure  String?
+  updatedBy  Int?
+}
